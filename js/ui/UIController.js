@@ -392,13 +392,11 @@ const UIController = {
 
         window.chooseEventOption = (idx) => {
             const c = event.choices[idx];
+            // 🌟 대출은 FA 재계약/스캔들 강제 영입처럼 '피할 수 없는' 상황에서만 허용한다.
+            // 일반 이벤트 선택지는 자금이 부족하면 그냥 선택할 수 없다(버튼이 비활성화되어 있음).
             if (c.cost > GameState.earnedMoney) {
-                // 대출 안내 및 처리
-                if (confirm(`가용 자금이 부족합니다. 대출을 받아 진행하시겠습니까? (20% 이자 부과)`)) {
-                    SimEngine.processLoan(c.cost);
-                } else {
-                    return;
-                }
+                alert(`적립금이 부족합니다. (보유 ${GameState.earnedMoney}원, 필요 ${c.cost}원)`);
+                return;
             }
             const result = SimEngine.resolveEvent(event, idx);
             if (!result || result.error) {
@@ -437,6 +435,18 @@ const UIController = {
                     <div class="ending-stat-item"><span>보유 자금</span><strong style="color:#4ade80;">${GameState.earnedMoney}원</strong></div>
                     <div class="ending-stat-item"><span>다음 단계</span><strong style="color:#facc15;">FA 시장 개설 & 선수단 정리</strong></div>
                 </div>
+            </div>
+
+            <div class="ending-section">
+                <div class="ending-section-title">📊 최종 리그 순위표</div>
+                ${this._buildStandingsTableHtml(finalStandings)}
+            </div>
+
+            ${this._buildEventLogSectionHtml()}
+
+            <div class="ending-section">
+                <div class="ending-section-title">🧢 선수단 시즌 성적 (교체이력 포함)</div>
+                ${this._buildRosterStatTableHtml()}
             </div>
 
             <button class="start-season-btn decision-continue-btn" onclick="UIController.startFaPhase()">⚖️ FA 시장 및 선수단 정산 시작하기</button>
@@ -530,17 +540,14 @@ const UIController = {
     },
 
     removePlayerFromRoster(player) {
-        if (GameState.selections.sp.includes(player)) {
-            GameState.selections.sp = GameState.selections.sp.filter(p => p !== player);
-        } else if (GameState.selections.rp.includes(player)) {
-            GameState.selections.rp = GameState.selections.rp.filter(p => p !== player);
-        } else if (GameState.selections.cp === player) {
-            GameState.selections.cp = null;
-        } else {
-            Object.keys(GameData.POSITION_LABEL).forEach(k => {
-                if (GameState.selections[k] === player) GameState.selections[k] = null;
-            });
-        }
+        const spIdx = GameState.selections.sp.indexOf(player);
+        if (spIdx >= 0) { GameState.selections.sp[spIdx] = null; return; }
+        const rpIdx = GameState.selections.rp.indexOf(player);
+        if (rpIdx >= 0) { GameState.selections.rp[rpIdx] = null; return; }
+        if (GameState.selections.cp === player) { GameState.selections.cp = null; return; }
+        Object.keys(GameData.POSITION_LABEL).forEach(k => {
+            if (GameState.selections[k] === player) GameState.selections[k] = null;
+        });
     },
 
     finishFaPhase() {
@@ -552,7 +559,44 @@ const UIController = {
                 this.removePlayerFromRoster(fa.player);
             });
         }
-        window.prepareNextSeason(); 
+        GameState.faCandidates = [];
+        // 🌟 FA 이탈로 생긴 공석은 다음 시즌으로 넘어가기 전에 반드시 채워야 한다.
+        this.renderRosterRestockView();
+    },
+
+    // 🌟 FA 이탈(또는 스캔들)로 비어버린 로스터 슬롯을 한 자리씩 강제로 채우게 하는 화면.
+    // 모든 공석이 채워지면 자동으로 다음 시즌(전지훈련)으로 진행한다.
+    renderRosterRestockView() {
+        const emptySlots = [];
+        GameState.selections.sp.forEach((p, i) => { if (!p) emptySlots.push({ type: 'sp', idx: i }); });
+        GameState.selections.rp.forEach((p, i) => { if (!p) emptySlots.push({ type: 'rp', idx: i }); });
+        if (!GameState.selections.cp) emptySlots.push({ type: 'cp', idx: null });
+        Object.keys(GameData.POSITION_LABEL).forEach(k => { if (!GameState.selections[k]) emptySlots.push({ type: k, idx: null }); });
+
+        if (emptySlots.length === 0) {
+            window.prepareNextSeason();
+            return;
+        }
+
+        const next = emptySlots[0];
+        const label = (next.type === 'sp') ? `선발투수 ${next.idx + 1}번째 자리`
+            : (next.type === 'rp') ? `중간계투 ${next.idx + 1}번째 자리`
+            : (next.type === 'cp') ? '마무리투수 자리'
+            : `${GameData.POSITION_LABEL[next.type] || next.type} 자리`;
+
+        const simArea = document.getElementById('view-simulation');
+        if (!simArea) return;
+        simArea.innerHTML = `
+        <div class="decision-card">
+            ${this.moneyBadgeFloatHtml()}
+            <div class="ending-header">
+                <div class="decision-eyebrow">🧩 선수단 보충 (남은 공석 ${emptySlots.length}자리)</div>
+                <div class="ending-title">${label} 공석을 채워주세요</div>
+                <div class="ending-desc">FA 이탈로 생긴 빈자리입니다. 모든 공석을 채워야 다음 시즌으로 진행할 수 있습니다. (자금이 부족하면 20% 이자의 긴급 대출이 자동 적용됩니다)</div>
+            </div>
+            <div id="forced-swap-slot"></div>
+        </div>`;
+        this._buildForcedSwapContent(next.type, next.idx, 'restock');
     },
 
     renderEventResult(event, result, onComplete) {
@@ -586,7 +630,87 @@ const UIController = {
                 <h3 style="color:#38bdf8; margin-bottom:6px;">시뮬레이션 구동 중...</h3>
                 <p style="color:#94a3b8; font-size:0.8rem;">투타 밸런스, 시너지, 리그 순위를 연산하고 있습니다.</p>
             </div>`;
-        setTimeout(() => this.renderSimSummary(), 1200);
+        setTimeout(() => {
+            if (GameState.forcedReplacement) {
+                this.renderForcedReplacementGate();
+            } else {
+                this.renderSimSummary();
+            }
+        }, 1200);
+    },
+
+    // 🌟 스캔들로 영구 경질된 선수의 빈 자리를 채우기 전에는 대시보드로 진입할 수 없다.
+    renderForcedReplacementGate() {
+        const fr = GameState.forcedReplacement;
+        const simArea = document.getElementById('view-simulation');
+        if (!simArea) return;
+        if (!fr) { this.renderSimSummary(); return; }
+
+        simArea.innerHTML = `
+        <div class="decision-card">
+            ${this.moneyBadgeFloatHtml()}
+            <div class="ending-header">
+                <div class="decision-eyebrow">🚨 선수단 비상사태</div>
+                <div class="ending-title">${fr.playerName} 영구 경질</div>
+                <div class="ending-desc" style="white-space:pre-line;">${fr.reason}</div>
+            </div>
+            <div id="forced-swap-slot"></div>
+        </div>`;
+        this._buildForcedSwapContent(fr.type, fr.idx, 'scandal');
+    },
+
+    // 🌟 강제 영입 카드 리스트를 그린다 (모드: 'scandal' = 경질 공백 / 'restock' = FA 이탈 공백)
+    // 두 경우 모두 환급/차액 없이 후보 가격 전액을 요구하며, 자금이 부족하면 20% 이자의 긴급 대출을 자동 적용한다.
+    _buildForcedSwapContent(type, idx, mode) {
+        let candidatePool = [];
+        if (type === 'dh') {
+            const batterTabs = GameData.tabDefs.filter(t => !['sp', 'rp', 'cp'].includes(t.key));
+            batterTabs.forEach(tab => { if (tab.pool) candidatePool.push(...tab.pool); });
+        } else {
+            const tab = GameData.tabDefs.find(t => t.key === type);
+            if (tab && tab.pool) candidatePool.push(...tab.pool);
+        }
+        if (GameData.swapPlayerPool) {
+            candidatePool.push(...GameData.swapPlayerPool.filter(p => {
+                if (type === 'dh') return !p.isPitcher;
+                if (['sp', 'rp', 'cp'].includes(type)) return p.isPitcher && (p.pos === type || !p.pos);
+                return p.pos === type || (p.isPitcher === false && !p.pos);
+            }));
+        }
+
+        const usedBaseNames = GameState.getUsedBaseNames ? GameState.getUsedBaseNames() : new Set();
+        const uniquePoolMap = new Map();
+        candidatePool.forEach(p => {
+            if (!p) return;
+            if (usedBaseNames.has(SimEngine.baseName(p.name))) return;
+            if (GameState.swappedPlayers.has(p.name)) return;
+            if (!uniquePoolMap.has(p.name)) uniquePoolMap.set(p.name, p);
+        });
+        const pool = Array.from(uniquePoolMap.values()).sort((a, b) => (b.ovr - a.ovr) || (a.price - b.price));
+
+        const slot = document.getElementById('forced-swap-slot');
+        if (!slot) return;
+
+        if (pool.length === 0) {
+            slot.innerHTML = `<p style="color:#f87171; padding:20px 0;">영입 가능한 후보가 없습니다. 다른 포지션부터 처리해주세요.</p>`;
+            return;
+        }
+
+        slot.innerHTML = `
+            ${this.moneyBadgeFloatHtml()}
+            <div class="swap-modal-grid player-grid" style="margin-top:12px;">
+                ${pool.map(c => {
+                    const canAfford = c.price <= GameState.earnedMoney;
+                    const costLabel = canAfford
+                        ? `<span style="color:#4ade80;">즉시 영입 가능</span>`
+                        : `<span style="color:#f87171;">부족분 대출 필요 (20% 이자)</span>`;
+                    return this.generatePlayerCardHtml(c, {
+                        isDisabled: false,
+                        priceDiffHtml: `₩${c.price} ${costLabel}`,
+                        actionBtnHtml: `<button class="action-btn" style="width:100%; padding:8px; background:#dc2626; color:#fff; border:none;" onclick="event.stopPropagation(); window.executeForcedSwap('${type}', ${idx === null || idx === undefined ? 'null' : idx}, '${c.name}', '${mode}')">${canAfford ? '즉시 영입' : '대출로 영입'}</button>`
+                    });
+                }).join('')}
+            </div>`;
     },
 
     renderSimSummary() {
@@ -864,51 +988,6 @@ const UIController = {
         }
     },
 
-    renderSeasonDecisionView(simArea, finalStandings, finalRank, myFinalRecord, outcome) {
-        const flavor = this._getSeasonRankFlavor(finalRank);
-        const coach  = GameState.coachName ? `${GameState.coachName} 감독님` : '감독님';
-
-        simArea.innerHTML = `
-        <div class="decision-card">
-            ${this.moneyBadgeFloatHtml()}
-            <div class="ending-header">
-                <div class="decision-eyebrow">시즌 ${GameState.seasonNumber} 종료</div>
-                <div class="ending-title">${flavor.title}</div>
-                <div class="ending-desc">${flavor.desc}</div>
-            </div>
-
-            <div class="ending-section outcome-section outcome-${outcome.tier.toLowerCase()}">
-                <div class="ending-section-title">${outcome.label}</div>
-                <p style="font-size:0.88rem; color:#e2e8f0; line-height:1.5;">${coach}, ${outcome.msg}</p>
-                ${outcome.bonus > 0 ? `<div class="bonus-tag">${this.moneyChipHtml('+' + outcome.bonus)} 추가 지원!</div>` : ''}
-            </div>
-
-            <div class="ending-section">
-                <div class="ending-section-title">📈 시즌 ${GameState.seasonNumber} 최종 결산</div>
-                <div class="ending-stat-grid">
-                    <div class="ending-stat-item"><span>최종 순위</span><strong style="color:#facc15;">${finalRank}위</strong></div>
-                    <div class="ending-stat-item"><span>전적</span><strong>${myFinalRecord ? myFinalRecord.wins : 0}승 ${myFinalRecord ? myFinalRecord.losses : 0}패</strong></div>
-                    <div class="ending-stat-item"><span>보유 자금</span><strong style="color:#4ade80;">${GameState.earnedMoney}원</strong></div>
-                    <div class="ending-stat-item"><span>다음 시즌</span><strong style="color:#facc15;">시즌 ${GameState.seasonNumber + 1} / ${GameState.MAX_SEASONS}</strong></div>
-                </div>
-            </div>
-
-            <div class="ending-section">
-                <div class="ending-section-title">📊 최종 리그 순위표</div>
-                ${this._buildStandingsTableHtml(finalStandings)}
-            </div>
-
-            ${this._buildEventLogSectionHtml()}
-
-            <div class="ending-section">
-                <div class="ending-section-title">🧢 선수단 시즌 성적 (교체이력 포함)</div>
-                ${this._buildRosterStatTableHtml()}
-            </div>
-
-            <button class="start-season-btn decision-continue-btn" onclick="window.prepareNextSeason()">🏕️ 다음 시즌 준비하기 (전지훈련)</button>
-        </div>`;
-    },
-
     renderCareerCompleteView(simArea, finalStandings, finalRank, myFinalRecord, outcome) {
         const flavor = this._getSeasonRankFlavor(finalRank);
         const careerGrade = SimEngine.getCareerGrade(GameState.careerLog);
@@ -1004,10 +1083,10 @@ const UIController = {
         if (type !== 'stats') return;
 
         const rows = [];
-        if (GameState.selections.sp) GameState.selections.sp.forEach((p, i) => rows.push({ label: `${i+1}선발`, type: 'sp', idx: i, player: p }));
-        if (GameState.selections.rp) GameState.selections.rp.forEach((p, i) => rows.push({ label: `중간계투${i+1}`, type: 'rp', idx: i, player: p }));
+        if (GameState.selections.sp) GameState.selections.sp.forEach((p, i) => { if (p) rows.push({ label: `${i+1}선발`, type: 'sp', idx: i, player: p }); });
+        if (GameState.selections.rp) GameState.selections.rp.forEach((p, i) => { if (p) rows.push({ label: `중간계투${i+1}`, type: 'rp', idx: i, player: p }); });
         if (GameState.selections.cp) rows.push({ label: '마무리(CP)', type: 'cp', idx: undefined, player: GameState.selections.cp });
-        if (GameState.battingOrder)  GameState.battingOrder.forEach((key, i) => rows.push({ label: `${i+1}번(${GameData.POSITION_ABBR[key]})`, type: key, idx: undefined, player: GameState.selections[key] }));
+        if (GameState.battingOrder)  GameState.battingOrder.forEach((key, i) => { if (GameState.selections[key]) rows.push({ label: `${i+1}번(${GameData.POSITION_ABBR[key]})`, type: key, idx: undefined, player: GameState.selections[key] }); });
 
         const rowsHtml = rows.map(row => {
             const st = SimEngine.computeStatFor(row.type, row.idx, step);
