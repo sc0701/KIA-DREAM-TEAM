@@ -18,6 +18,13 @@ window.prepareNextSeason = () => {
     alert(`📢 [시즌 개막]\n\n드디어 기다리던 ${currentYear}시즌이 막을 올립니다!\n올해 목표는 통합 우승과 통산 V${(GameState.totalChampionships || 12) + 1} 달성입니다. 감독님의 야구력을 보여주세요!`);
 
     GameState.resetSeasonState(); // 새 시즌 상태로 먼저 초기화한 뒤 전지훈련 효과를 반영한다.
+
+    // 🌟 2~3년차 시즌 개막 시 1회, 40% 확률로 선수 영구 경질 스캔들 발생
+    const scandal = SimEngine.checkRandomScandalEvent();
+    if (scandal) {
+        alert(scandal.reason);
+    }
+
     const camps = GameData.trainingCampEvents;
     const camp = camps[Math.floor(Math.random() * camps.length)];
     UIController.showEventModal(camp, () => {
@@ -268,6 +275,42 @@ window.executeSwap = (type, idx, candidateName) => {
         alert(`${current.name} → ${candidate.name} 교체 완료! (${msg})`);
         UIController.renderSimDetail('stats');
     }, 150);
+};
+
+// 🌟 강제 영입(스캔들로 빈 자리 / FA 이탈로 빈 자리) 처리.
+// 환급이나 차액 계산 없이 후보 가격 전액을 요구하며, 자금이 부족하면 20% 이자의 긴급 대출을 자동으로 적용한다.
+window.executeForcedSwap = (type, idx, candidateName, mode) => {
+    let candidate = GameData.swapPlayerPool.find(p => p.name === candidateName);
+    if (!candidate) {
+        for (const tab of GameData.tabDefs) {
+            candidate = tab.pool.find(p => p.name === candidateName);
+            if (candidate) break;
+        }
+    }
+    if (!candidate) { alert('선수를 찾을 수 없습니다.'); return; }
+
+    const cost = candidate.price;
+    const usedLoan = cost > GameState.earnedMoney;
+    if (usedLoan) SimEngine.processLoan(cost);
+    GameState.earnedMoney -= cost;
+
+    const normalizedIdx = (idx === null) ? undefined : idx;
+    candidate.joinedStep = GameState.currentStepIndex + 1;
+    GameState.setPlayer(type, normalizedIdx, candidate);
+    GameState.swappedPlayers.add(candidate.name);
+    GameState.statCache = {};
+
+    const loanMsg = usedLoan ? `\n(자금 부족으로 대출 실행 — 현재 대출 잔액 ${GameState.loanBalance}원, 다음 정산에서 20% 이자 포함 자동 차감됩니다)` : '';
+    alert(`${candidate.name} 선수를 긴급 영입했습니다! (${cost}원 지출)${loanMsg}`);
+
+    UIController.updateStickyAndBoard();
+
+    if (mode === 'restock') {
+        UIController.renderRosterRestockView();
+    } else {
+        GameState.forcedReplacement = null;
+        UIController.renderSimSummary();
+    }
 };
 
 window.addEventListener('DOMContentLoaded', () => {
