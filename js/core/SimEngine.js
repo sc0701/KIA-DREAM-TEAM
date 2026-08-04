@@ -32,20 +32,47 @@ processLoan(amountNeeded) {
             GameState.earnedMoney += actualEarn;
         }
     },
-checkRandomScandalEvent() {
-        if (!GameState.scandalHappenedThisCareer && (GameState.seasonNumber === 2 || GameState.seasonNumber === 3)) {
-            if (Math.random() < 0.4) { // 40% 확률
-                GameState.scandalHappenedThisCareer = true;
-                const allPlayers = GameState.getAllSelectedPlayers();
-                if (allPlayers.length > 0) {
-                    const unluckyPlayer = allPlayers[Math.floor(Math.random() * allPlayers.length)];
-                    UIController.removePlayerFromRoster(unluckyPlayer);
-                    
-                    alert(`🚨 [속보] 충격적인 스캔들 발생!\n\n주전 선수 [${unluckyPlayer.name}] 선수가 불법 도박/음주운전 파문에 연루되어 구단으로부터 '영구 경질' 조치를 당했습니다!\n\n보상금 없이 즉시 팀에서 방출되며, 빈자리를 채우기 위해 급히 새로운 선수를 영입해야 합니다.`);
-                    UIController.switchStage('DRAFT'); // 선수 교체를 위해 드래프트 창으로 강제 이동
-                }
-            }
+    hashStr(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) >>> 0; }
+        return h;
+    },
+
+    // 🌟 2~3년차 시즌에 한 번(커리어 통틀어 1회, 40% 확률)만 발생하는 영구 경질 스캔들.
+    // 보상금 없이 슬롯을 비우고, forcedReplacement 플래그로 UI가 즉시 강제 영입 화면을 띄우게 한다.
+    checkRandomScandalEvent() {
+        if (GameState.scandalHappenedThisCareer) return null;
+        if (GameState.seasonNumber !== 2 && GameState.seasonNumber !== 3) return null;
+        if (Math.random() >= 0.4) return null; // 40% 확률
+
+        GameState.scandalHappenedThisCareer = true;
+
+        const slots = [];
+        GameState.selections.sp.forEach((p, i) => { if (p) slots.push({ type: 'sp', idx: i, player: p }); });
+        GameState.selections.rp.forEach((p, i) => { if (p) slots.push({ type: 'rp', idx: i, player: p }); });
+        if (GameState.selections.cp) slots.push({ type: 'cp', idx: null, player: GameState.selections.cp });
+        Object.keys(GameData.POSITION_LABEL).forEach(k => {
+            if (GameState.selections[k]) slots.push({ type: k, idx: null, player: GameState.selections[k] });
+        });
+        if (slots.length === 0) return null;
+
+        const picked = slots[Math.floor(Math.random() * slots.length)];
+        const reasons = ['불법 스포츠 도박 연루', '상습 음주운전 적발', '경기 승부조작 의혹 연루', '팀 규율 위반 및 라커룸 폭행 사건'];
+        const reason = reasons[Math.floor(Math.random() * reasons.length)];
+
+        if (picked.type === 'sp' || picked.type === 'rp') {
+            GameState.selections[picked.type][picked.idx] = null;
+        } else {
+            GameState.selections[picked.type] = null;
         }
+
+        GameState.forcedReplacement = {
+            type: picked.type,
+            idx: picked.idx,
+            playerName: picked.player.name,
+            reason: `🚨 [긴급 속보] 주전 선수 [${picked.player.name}]가 [${reason}]에 연루되어 구단으로부터 영구 경질(방출) 조치를 당했습니다.\n\n위약금·보상금은 일절 지급되지 않으며, 감독님은 가용 자금(부족 시 20% 이자의 긴급 대출)을 사용해 즉시 대체 선수를 영입해야 합니다.`
+        };
+        return GameState.forcedReplacement;
     },
 
     // 🌟 리그 순위 산출 (시즌이 지속될수록 타 팀 전력 대폭 상승 반영)
@@ -67,7 +94,9 @@ checkRandomScandalEvent() {
         const gamesDelta = gamesPlayed - prevGames;
 
         // 시즌이 거듭될수록(2년차, 3년차...) 상대 팀들의 기본 전력이 점진적으로 강력해짐
-        const multiSeasonDifficultyBoost = (GameState.seasonNumber - 1) * 4.5;
+        const multiSeasonDifficultyBoost = (GameState.seasonNumber - 1) * 7.0;
+        // 내 팀 전력이 지나치게 높아지면(자금으로 초강력 선수단을 꾸리면) 리그 전체도 동반 상승 — 무한 스노우볼 방지
+        const adaptiveDifficultyBoost = Math.max(0, myPower.total - 86) * 0.65;
 
         const allTeams = GameData.rivalTeams.map((rival, index) => {
             const seed = (index + 1) * 419 + gamesPlayed * 107;
@@ -77,7 +106,7 @@ checkRandomScandalEvent() {
 
             return { 
                 name: rival.name, 
-                power: rival.power + seasonCondition + microVariance + lateSeasonBoost + multiSeasonDifficultyBoost, 
+                power: rival.power + seasonCondition + microVariance + lateSeasonBoost + multiSeasonDifficultyBoost + adaptiveDifficultyBoost, 
                 isMy: false 
             };
         });
@@ -456,79 +485,6 @@ players.forEach(p => {
         };
     },
 
-    /**
-     * 리그 순위 산출
-     */
-    getLeagueStandings(gamesPlayed) {
-        if (!GameState.standingsCache) GameState.standingsCache = {};
-        if (GameState.standingsCache[gamesPlayed]) return GameState.standingsCache[gamesPlayed];
-
-        if (!GameState.seasonRivalVariances) {
-            GameState.seasonRivalVariances = {};
-            GameData.rivalTeams.forEach(t => { GameState.seasonRivalVariances[t.name] = (Math.random() - 0.5) * 30.0; });
-        }
-
-        const prevGames = Object.keys(GameState.standingsCache).map(Number).sort((a,b)=>b-a)[0] || 0;
-        const prevStandings = GameState.standingsCache[prevGames] ||
-            GameData.rivalTeams.map(t => ({ name: t.name, wins: 0, losses: 0 }))
-                .concat([{ name: 'KIA 타이거즈 (내 팀)', wins: 0, losses: 0, isMy: true }]);
-
-        const myPower = this.calculateMyTeamPower();
-        const gamesDelta = gamesPlayed - prevGames;
-
-const allTeams = GameData.rivalTeams.map((rival, index) => {
-            const seed = (index + 1) * 419 + gamesPlayed * 107;
-            const microVariance = (this.pseudoRandom(seed, gamesPlayed) - 0.5) * 8.0;
-            const seasonCondition = GameState.seasonRivalVariances[rival.name];
-
-
-            const lateSeasonBoost = (gamesPlayed / 144) * 9.0;
-
-            return { 
-                name: rival.name, 
-                power: rival.power + seasonCondition + microVariance + lateSeasonBoost, 
-                isMy: false 
-            };
-        });
-
-        const mySeed = 8888 + gamesPlayed * 163;
-        const myMicroVariance = (this.pseudoRandom(mySeed, gamesPlayed) - 0.5) * 5.0;
-        allTeams.push({ name: 'KIA 타이거즈 (내 팀)', power: myPower.total + myMicroVariance, isMy: true });
-
-        allTeams.sort((a, b) => b.power - a.power);
-
-        const result = allTeams.map((team, index) => {
-            let baseWinRate = 0.66 - (index * 0.048);
-            if (team.isMy) {
-                const powerDiff = myPower.total - 80;
-
-                baseWinRate = 0.48 + (powerDiff * 0.013) + (GameState.eventWinRateBonus || 0);
-            }
-            baseWinRate = this.clampNum(baseWinRate, 0.15, 0.85);
-
-            const deltaWins   = Math.round(gamesDelta * baseWinRate);
-            const deltaLosses = gamesDelta - deltaWins;
-
-            const prev = prevStandings.find(t => t.name === team.name) || { wins: 0, losses: 0 };
-            const totalWins   = prev.wins   + deltaWins;
-            const totalLosses = prev.losses + deltaLosses;
-
-            return {
-                name: team.name,
-                wins: totalWins,
-                losses: totalLosses,
-                winRate: (totalWins / (totalWins + totalLosses || 1)).toFixed(3).replace(/^0/, ''),
-                isMy: team.isMy
-            };
-        });
-
-        result.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
-        result.forEach((t, i) => t.rank = i + 1);
-
-        GameState.standingsCache[gamesPlayed] = result;
-        return result;
-    },
-
     resolveEvent(event, choiceIdx) {
         const choice = event.choices[choiceIdx];
         if (!choice) return null;
@@ -537,7 +493,11 @@ const allTeams = GameData.rivalTeams.map((rival, index) => {
         GameState.earnedMoney -= choice.cost;
         const isGood = Math.random() < choice.probGood;
         const effect = isGood ? choice.goodEffect : choice.badEffect;
-        GameState.eventWinRateBonus = (GameState.eventWinRateBonus || 0) + effect;
+        // 🌟 이벤트는 시즌당 최대 3번(각 구간 전환 시) 발생하는데, 매번 최고급 선택지를 고르면
+        // 승률이 최대 +15%p 가까이 누적돼 로스터 실력 차이를 압도해버리는 문제가 있었다.
+        // 시즌 내 누적 보너스를 ±8%p로 캡을 걸어 과도한 인플레이션을 막는다.
+        const rawBonus = (GameState.eventWinRateBonus || 0) + effect;
+        GameState.eventWinRateBonus = this.clampNum(rawBonus, -0.08, 0.08);
 
         const logEntry = { title: event.title, choiceLabel: choice.label, isGood, effect, msg: isGood ? choice.goodMsg : choice.badMsg };
         GameState.eventLogs.push(logEntry);
@@ -551,7 +511,7 @@ const allTeams = GameData.rivalTeams.map((rival, index) => {
         const myWins = myTeamRecord ? myTeamRecord.wins : Math.round(step.games * 0.5);
         const earn = Math.max(1, Math.round(myWins * 0.15 * 10) / 10);
         const actualEarn = Math.ceil(earn);
-        GameState.earnedMoney += actualEarn;
+        this.applyEarningsWithLoanCheck(actualEarn);
         step._earnedThisStep = actualEarn;
         step._myWinsThisStep = myWins;
         UIController.updateStickyAndBoard();
@@ -738,12 +698,16 @@ getNewsAndReportForCurrentStep() {
 
 
         if (!player._seasonVariance) {
-            player._seasonVariance = 0.92 + (Math.random() * 0.16); // 0.92 ~ 1.08 사이의 미세한 시즌 기복 (약 ±8%)
+            player._seasonVariance = 0.85 + (Math.random() * 0.30); // 0.85 ~ 1.15 사이의 개인별 시즌 기복 (±15%, 선수마다 고정)
         }
-        const seedVal = GameState.currentStepIndex * 811 + identity.length * 61 + this.randomSalt;
+        // 🌟 이전에는 identity.length(예: 'sp0'~'sp4' 모두 길이 3)만 시드에 반영되어
+        // 같은 포지션군의 선수들이 사실상 동일한 난수를 공유, 성적이 서로 판박이처럼 나오는 버그가 있었다.
+        // 이름까지 포함한 해시로 완전히 개별화한다.
+        const seedVal = GameState.currentStepIndex * 811 + (this.hashStr(identity + '|' + player.name) % 97331) + this.randomSalt;
         const randA = this.pseudoRandom(seedVal, 1.33);
         const randB = this.pseudoRandom(seedVal, 2.66);
         const randC = this.pseudoRandom(seedVal, 3.99);
+        const sv = player._seasonVariance;
 
         const joinedStep = player.joinedStep || 0;
         let pastGames = 0;
@@ -763,10 +727,12 @@ getNewsAndReportForCurrentStep() {
         let result;
 
         if (player.isPitcher) {
-            const controlFactor = (player.ctrl - 68) * 0.068;
-            const stuffFactor   = (player.spd  - 68) * 0.042;
-            const mentalFactor  = (player.mtl  - 68) * 0.032;
-            const staminaFactor = (player.stm  - 68) * 0.018;
+            const controlFactor = (player.ctrl - 68) * 0.068 * sv;
+            const stuffFactor   = (player.spd  - 68) * 0.042 * sv;
+            const mentalFactor  = (player.mtl  - 68) * 0.032 * sv;
+            const staminaFactor = (player.stm  - 68) * 0.018 * sv;
+            // 팀 성적과의 싱크: 팀 승률이 좋을수록(수비/타선 지원) 개인 방어율도 함께 좋아지도록 소폭 연동
+            const teamSyncEra = (teamWinPct - 0.5) * -1.1;
 
             let defSynergyEra = 0;
             if (syn.isEliteDefenseTeam) defSynergyEra = 1.20;
@@ -785,13 +751,13 @@ getNewsAndReportForCurrentStep() {
             if (syn.isElitePitchingTeam) pitchSynEra = 0.80;
             else if (syn.isPitchingTeam)  pitchSynEra = 0.40;
 
-            const baseEra = 4.80 - controlFactor - stuffFactor - mentalFactor - staminaFactor - defSynergyEra - pitchSynEra + (randA - 0.5) * 1.4;
+            const baseEra = 4.80 - controlFactor - stuffFactor - mentalFactor - staminaFactor - defSynergyEra - pitchSynEra + teamSyncEra + (randA - 0.5) * 1.8;
             const era = this.clampNum(baseEra, 0.70, 9.50);
 
             let soBonus = 0;
             if (syn.eliteSpdCount >= 3) soBonus += 5;
 
-            const strikeouts = Math.round((player.spd * 2.4 + player.ctrl * 0.6 + soBonus + (randB * 28)) * gamesFactor);
+            const strikeouts = Math.round(((player.spd * 2.4 + player.ctrl * 0.6 + soBonus + (randB * 28)) * sv) * gamesFactor);
 
             let recordLine = '';
             if (type === 'sp') {
@@ -836,8 +802,11 @@ getNewsAndReportForCurrentStep() {
             if (syn.traitorCount >= 4) contactBonus -= 0.045;
             else if (syn.traitorCount >= 2) contactBonus -= 0.015;
 
+            // 팀 성적과의 싱크: 팀 승률이 좋을수록(전체적인 타선/수비 지원) 개인 타율도 함께 소폭 상승
+            const teamSyncAvg = (teamWinPct - 0.5) * 0.028;
+
             const battingAvg = this.clampNum(
-                0.175 + (player.con - 60) * 0.0045 + contactBonus + (randA - 0.5) * 0.042,
+                0.175 + (player.con - 60) * 0.0045 * sv + contactBonus + teamSyncAvg + (randA - 0.5) * 0.052,
                 0.155, 0.415
             );
 
@@ -848,7 +817,7 @@ getNewsAndReportForCurrentStep() {
             else if (syn.isElitePowerTeam) powerSynergyHr = 1.70;
             else if (syn.isPowerTeam) powerSynergyHr = 1.35;
             
-            const hr = Math.max(0, Math.round((((player.pow - 52) * 0.55 * powFactor * powerSynergyHr) + (randB * 5)) * gamesFactor));
+            const hr = Math.max(0, Math.round((((player.pow - 52) * 0.55 * powFactor * powerSynergyHr * sv) + (randB * 5)) * gamesFactor));
 
             let speedSynergySb = 1.0;
             if (syn.eliteSpdCount >= 5) speedSynergySb = 2.40;
@@ -856,7 +825,7 @@ getNewsAndReportForCurrentStep() {
             else if (syn.isEliteSpeedTeam) speedSynergySb = 2.20;
             else if (syn.isSpeedTeam) speedSynergySb = 1.55;
 
-            const sb = Math.max(0, Math.round((((player.spd - 52) * 0.52 * speedSynergySb) + (randC * 7)) * gamesFactor));
+            const sb = Math.max(0, Math.round((((player.spd - 52) * 0.52 * speedSynergySb * sv) + (randC * 7)) * gamesFactor));
 
             let specialStatHtml = '';
             if (type === 'dh') {
