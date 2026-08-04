@@ -33,6 +33,7 @@ const GameState = {
 
     scandalHappenedThisCareer: false,
     faCandidates: [],
+    forcedReplacement: null, // { type, idx, playerName, reason } — 스캔들로 빈 슬롯이 생기면 채워질 때까지 유지
 
     /**
      * 새 시즌을 시작하기 전, 이전 시즌의 진행 상태만 초기화한다.
@@ -57,7 +58,8 @@ const GameState = {
     },
 
     getAllSelectedPlayers() {
-        const list = [...this.selections.sp, ...this.selections.rp];
+        // 🌟 스캔들(영구 경질) 등으로 슬롯이 null이 될 수 있으므로 항상 필터링한다.
+        const list = [...this.selections.sp, ...this.selections.rp].filter(Boolean);
         if (this.selections.cp) list.push(this.selections.cp);
         Object.keys(GameData.POSITION_LABEL).forEach(k => {
             if (this.selections[k]) list.push(this.selections[k]);
@@ -66,10 +68,12 @@ const GameState = {
     },
     getUsedBaseNames() { return new Set(this.getAllSelectedPlayers().map(p => SimEngine.baseName(p.name))); },
     selectedCount() {
-        let n = this.selections.sp.length + this.selections.rp.length + (this.selections.cp ? 1 : 0);
+        let n = this.selections.sp.filter(Boolean).length + this.selections.rp.filter(Boolean).length + (this.selections.cp ? 1 : 0);
         Object.keys(GameData.POSITION_LABEL).forEach(k => { if (this.selections[k]) n++; });
         return n;
     },
+    // 🌟 스캔들로 인한 강제 영입이 아직 처리되지 않았는지 확인
+    hasUnresolvedForcedReplacement() { return !!this.forcedReplacement; },
     totalSpent() { return this.getAllSelectedPlayers().reduce((s, p) => s + p.price, 0); },
     getCurrentPlayer(type, idx) {
         if (type === 'sp' || type === 'rp') return this.selections[type][idx];
