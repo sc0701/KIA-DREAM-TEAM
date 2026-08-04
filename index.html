@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KIA Tigers Fantasy Roster Simulator</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="top-sticky-bar" style="display:none;">
+        <div class="sticky-top-info">
+            <div class="info-group">
+                <span class="label">선택 인원</span>
+                <span class="val" id="selected-count">0 / 18</span>
+            </div>
+            <div class="info-group">
+                <span class="label">잔여 예산</span>
+                <span class="val" id="remaining-budget">100원</span>
+            </div>
+            <div class="money-badge" id="money-badge">
+                <span class="money-badge-icon">💰</span>
+                <div class="money-badge-text">
+                    <span class="money-badge-label">가용 자금</span>
+                    <span class="money-badge-val" id="earned-money">0원</span>
+                </div>
+            </div>
+            <button class="submit-btn" onclick="window.goToStadium()">야구장 가기 ➡️</button>
+        </div>
+
+        <div class="dashboard-board">
+            <div class="entry-panel">
+                <div class="entry-title">📋 내 팀 로스터 실시간 현황</div>
+                <div class="entry-grid-board">
+                    <div class="entry-col">
+                        <span class="sec-hdr">선발투수 (5명)</span>
+                        <div class="entry-txt">1선발: <strong id="e-sp1">-</strong></div>
+                        <div class="entry-txt">2선발: <strong id="e-sp2">-</strong></div>
+                        <div class="entry-txt">3선발: <strong id="e-sp3">-</strong></div>
+                        <div class="entry-txt">4선발: <strong id="e-sp4">-</strong></div>
+                        <div class="entry-txt">5선발: <strong id="e-sp5">-</strong></div>
+                    </div>
+                    <div class="entry-col">
+                        <span class="sec-hdr">불펜 / 마무리</span>
+                        <div class="entry-txt">중간1: <strong id="e-rp1">-</strong></div>
+                        <div class="entry-txt">중간2: <strong id="e-rp2">-</strong></div>
+                        <div class="entry-txt">중간3: <strong id="e-rp3">-</strong></div>
+                        <div class="entry-txt">마무리: <strong id="e-cp">-</strong></div>
+                    </div>
+                    <div class="entry-col" style="flex: 2;">
+                        <span class="sec-hdr">타선 (1~9번)</span>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+                            <div class="entry-txt">1번: <strong id="e-b1">-</strong></div>
+                            <div class="entry-txt">2번: <strong id="e-b2">-</strong></div>
+                            <div class="entry-txt">3번: <strong id="e-b3">-</strong></div>
+                            <div class="entry-txt">4번: <strong id="e-b4">-</strong></div>
+                            <div class="entry-txt">5번: <strong id="e-b5">-</strong></div>
+                            <div class="entry-txt">6번: <strong id="e-b6">-</strong></div>
+                            <div class="entry-txt">7번: <strong id="e-b7">-</strong></div>
+                            <div class="entry-txt">8번: <strong id="e-b8">-</strong></div>
+                            <div class="entry-txt">9번: <strong id="e-b9">-</strong></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-tabs" id="nav-tabs-bar"></div>
+    </div>
+
+    <div id="view-intro" class="stage-view" style="display:none;">
+        <div class="main-container" id="intro-container"></div>
+    </div>
+
+    <div id="view-draft" class="stage-view" style="display:none;">
+        <div class="main-container">
+            <div id="positions-container"></div>
+        </div>
+    </div>
+
+    <div id="view-stadium" class="stage-view" style="display:none;">
+        <div class="main-container" id="stadium-container"></div>
+    </div>
+
+    <div id="view-simulation" class="stage-view" style="display:none;">
+        <div class="main-container" id="simulation-container"></div>
+    </div>
+
+    <script src="js/data/GameData.js"></script>
+    <script src="js/core/Gamestate.js"></script>
+    <script src="js/core/SimEngine.js"></script>
+    <script src="js/ui/UIController.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
