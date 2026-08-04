@@ -242,6 +242,39 @@ GameData.randomEvents = [
                 { label: "전력분석팀 풀가동 & 상대팀 집중 분석 (7원)", cost: 7, probGood: 0.88, goodEffect: 0.036, badEffect: -0.005, goodMsg: "약점을 정확히 파고들어 대량 득점에 성공했습니다! (승률 +3.6%)", badMsg: "분석대로 흘러가지 않았습니다. (승률 -0.5%)" },
                 { label: "구단 역사상 최대 규모 승리 수당 살포 (12원)", cost: 12, probGood: 1.0, goodEffect: 0.058, badEffect: 0, goodMsg: "화끈한 보너스에 선수단 전원이 눈빛부터 달라졌습니다!! (승률 +5.8%)", badMsg: "(절대 실패하지 않음)" }
             ]
+        },
+        {
+            targetStep: 1,
+            title: "🌧️ 장마철 우천취소 대란",
+            desc: "긴 장마로 우천취소와 더블헤더가 반복되며 선발 로테이션이 꼬이고 있습니다. 어떻게 대응하시겠습니까?",
+            imgPlaceholder: "event-rain-delay",
+            choices: [
+                { label: "로테이션 무시하고 그냥 밀어붙이기 (0원)", cost: 0, probGood: 0.2, goodEffect: 0.014, badEffect: -0.02, goodMsg: "혹사 걱정을 딛고 의외의 호투가 나왔습니다! (승률 +1.4%)", badMsg: "투수진 체력이 급격히 무너졌습니다... (승률 -2%)" },
+                { label: "불펜데이 도입 및 로테이션 재편 (5원)", cost: 5, probGood: 0.78, goodEffect: 0.026, badEffect: -0.004, goodMsg: "유연한 운용으로 투수진 피로를 성공적으로 관리했습니다! (승률 +2.6%)", badMsg: "생소한 운용에 다소 혼선이 있었습니다. (승률 -0.4%)" },
+                { label: "실내 훈련장 증설 & 전담 정비팀 투입 (9원)", cost: 9, probGood: 0.93, goodEffect: 0.044, badEffect: 0, goodMsg: "완벽한 컨디션 관리로 장마철을 오히려 기회로 만들었습니다! (승률 +4.4%)", badMsg: "큰 변화는 없었습니다. (변화 없음)" }
+            ]
+        },
+        {
+            targetStep: 2,
+            title: "🔁 트레이드 데드라인 소문",
+            desc: "타 구단에서 우리 선수단에 눈독을 들이고 있다는 소문이 돕니다. 프런트 차원의 입장 정리가 필요합니다.",
+            imgPlaceholder: "event-trade-rumor",
+            choices: [
+                { label: "동요하지 말고 경기에만 집중 (0원)", cost: 0, probGood: 0.4, goodEffect: 0.016, badEffect: -0.018, goodMsg: "묵묵부답으로 오히려 선수단이 하나로 뭉쳤습니다. (승률 +1.6%)", badMsg: "뒤숭숭한 분위기 속 집중력이 흐트러졌습니다... (승률 -1.8%)" },
+                { label: "구단 차원의 '방출 없다' 공식 발표 (4원)", cost: 4, probGood: 0.82, goodEffect: 0.03, badEffect: -0.003, goodMsg: "확실한 안정감을 준 발표로 선수단 사기가 올랐습니다! (승률 +3%)", badMsg: "발표 이후에도 뒤숭숭함이 남았습니다. (승률 -0.3%)" },
+                { label: "핵심 선수 전원과 조기 재계약 협상 착수 (10원)", cost: 10, probGood: 0.96, goodEffect: 0.05, badEffect: 0, goodMsg: "확실한 신뢰를 얻은 선수단이 완전히 하나가 되었습니다! (승률 +5%)", badMsg: "큰 반응은 없었습니다. (변화 없음)" }
+            ]
+        },
+        {
+            targetStep: 3,
+            title: "🩺 주전 선수 컨디션 난조",
+            desc: "핵심 주전 몇 명이 시즌 막바지 체력 저하와 컨디션 난조를 호소하고 있습니다.",
+            imgPlaceholder: "event-condition-slump",
+            choices: [
+                { label: "그래도 주전은 계속 기용 (0원)", cost: 0, probGood: 0.25, goodEffect: 0.016, badEffect: -0.024, goodMsg: "근성으로 버텨낸 베테랑들이 제 몫을 해냈습니다! (승률 +1.6%)", badMsg: "체력 저하가 성적 부진으로 이어졌습니다... (승률 -2.4%)" },
+                { label: "로테이션 휴식 & 백업 선수 적극 기용 (6원)", cost: 6, probGood: 0.8, goodEffect: 0.03, badEffect: -0.004, goodMsg: "휴식과 로테이션이 절묘하게 맞아떨어졌습니다! (승률 +3%)", badMsg: "백업 선수들이 기대만큼 해주지 못했습니다. (승률 -0.4%)" },
+                { label: "스포츠 심리 상담 & 맞춤형 회복 프로그램 (10원)", cost: 10, probGood: 0.94, goodEffect: 0.048, badEffect: 0, goodMsg: "심리적, 신체적 컨디션을 완벽히 되찾았습니다! (승률 +4.8%)", badMsg: "눈에 띄는 변화는 없었습니다. (변화 없음)" }
+            ]
         }
 ];
 
@@ -264,6 +297,16 @@ GameData.trainingCampEvents = [
             { label: "선수단 자율에 맡긴다 (0원)", cost: 0, probGood: 0.3, goodEffect: 0.018, badEffect: -0.018, goodMsg: "선수들이 알아서 잘 준비해왔습니다! (다음 시즌 승률 +1.8%)", badMsg: "몸 관리에 소홀했던 선수들이 눈에 띕니다... (다음 시즌 승률 -1.8%)" },
             { label: "체계적인 웨이트 프로그램 도입 (6원)", cost: 6, probGood: 0.8, goodEffect: 0.034, badEffect: -0.005, goodMsg: "군살을 뺀 선수단, 몸놀림이 훨씬 가벼워졌습니다! (다음 시즌 승률 +3.4%)", badMsg: "적응 기간이 길어져 큰 효과는 못 봤습니다. (다음 시즌 승률 -0.5%)" },
             { label: "데이터 분석팀 확대 & 맞춤형 개인 훈련 (11원)", cost: 11, probGood: 0.96, goodEffect: 0.052, badEffect: 0, goodMsg: "과학적인 분석으로 선수 개개인의 약점을 완벽히 보완했습니다! (다음 시즌 승률 +5.2%)", badMsg: "예상보다 큰 변화는 없었습니다. (변화 없음)" }
+        ]
+    },
+    {
+        title: "🏟️ 신구단주 취임 & 리빌딩 방향",
+        desc: "새 구단주가 부임하며 팀 운영 철학에 변화가 예고되고 있습니다. 다음 시즌 방향을 어떻게 설정하시겠습니까?",
+        imgPlaceholder: "event-new-owner",
+        choices: [
+            { label: "기존 체제 그대로 유지 (0원)", cost: 0, probGood: 0.3, goodEffect: 0.016, badEffect: -0.016, goodMsg: "안정감 속에 큰 무리 없이 시즌을 준비했습니다. (다음 시즌 승률 +1.6%)", badMsg: "변화 없는 준비에 선수단 동기부여가 떨어졌습니다... (다음 시즌 승률 -1.6%)" },
+            { label: "코칭스태프 개편 및 훈련 시스템 정비 (7원)", cost: 7, probGood: 0.82, goodEffect: 0.036, badEffect: -0.006, goodMsg: "새로운 자극과 체계적인 준비로 팀 전체가 달라졌습니다! (다음 시즌 승률 +3.6%)", badMsg: "적응 과정에서 다소 혼란이 있었습니다. (다음 시즌 승률 -0.6%)" },
+            { label: "전 부문 대규모 투자 & 최신 시설 완비 (12원)", cost: 12, probGood: 0.96, goodEffect: 0.054, badEffect: 0, goodMsg: "구단의 파격적인 투자에 선수단 사기가 하늘을 찌릅니다! (다음 시즌 승률 +5.4%)", badMsg: "예상보다 반응은 크지 않았습니다. (변화 없음)" }
         ]
     }
 ];
