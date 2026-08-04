@@ -534,6 +534,8 @@ const UIController = {
 
         // 로스터에서 해당 선수 제거
         this.removePlayerFromRoster(fa.player);
+if (!GameState.swappedPlayers) GameState.swappedPlayers = new Set();
+        GameState.swappedPlayers.add(fa.player.name);
         GameState.faCandidates.splice(idx, 1);
         alert(`${fa.player.name} 선수가 FA로 팀을 떠났습니다. 보상금 ₩${refund}이 팀에 입금되었습니다.`);
         this.renderFaScreen();
@@ -557,6 +559,8 @@ const UIController = {
                 const refund = Math.max(0, fa.originalPrice - 2);
                 GameState.earnedMoney += refund;
                 this.removePlayerFromRoster(fa.player);
+if (!GameState.swappedPlayers) GameState.swappedPlayers = new Set();
+                GameState.swappedPlayers.add(fa.player.name);
             });
         }
         GameState.faCandidates = [];
